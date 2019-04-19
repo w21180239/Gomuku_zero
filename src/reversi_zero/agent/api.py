@@ -29,10 +29,10 @@ class ReversiModelAPI:
 
     def predict(self, x):
         assert x.ndim in (3, 4)
-        assert x.shape == (2, 8, 8) or x.shape[1:] == (2, 8, 8)
+        assert x.shape == (2, 15, 15) or x.shape[1:] == (2, 15, 15)
         orig_x = x
         if x.ndim == 3:
-            x = x.reshape(1, 2, 8, 8)
+            x = x.reshape(1, 2, 15, 15)
 
         policy, value = self._do_predict(x)
 
@@ -89,7 +89,7 @@ class MultiProcessReversiModelAPIServer:
             size_list = []
             for conn in ready_conns:
                 x = conn.recv()
-                data.append(x)  # shape: (k, 2, 8, 8)
+                data.append(x)  # shape: (k, 2, 15, 15)
                 size_list.append(x.shape[0])  # save k
             average_prediction_size.append(np.sum(size_list))
             array = np.concatenate(data, axis=0)

@@ -16,47 +16,47 @@ def another_player(player: Player):
 
 
 def is_game_over(own, action):
-    my_board = bit_to_array(own, 64).reshape(8, 8)
-    x = action // 8
-    y = action % 8
+    my_board = bit_to_array(own, 225).reshape(15, 15)
+    x = action // 15
+    y = action % 15
     limit = 5
     count = 0
-    for i in range(8):
+    for i in range(15):
         if my_board[x][i] == 1:
             count += 1
     if count == limit:
         return True
     count = 0
-    for i in range(8):
+    for i in range(15):
         if my_board[i][y] == 1:
             count += 1
     if count == limit:
         return True
 
     count = 1
-    for i in range(1, 8):
+    for i in range(1, 15):
         xx = x + i
         yy = y + i
-        if 0 <= xx < 8 and 0 <= yy < 8 and my_board[xx][yy] == 1:
+        if 0 <= xx < 15 and 0 <= yy < 15 and my_board[xx][yy] == 1:
             count += 1
-    for i in range(1, 8):
+    for i in range(1, 15):
         xx = x - i
         yy = y - i
-        if 0 <= xx < 8 and 0 <= yy < 8 and my_board[xx][yy] == 1:
+        if 0 <= xx < 15 and 0 <= yy < 15 and my_board[xx][yy] == 1:
             count += 1
     if count == limit:
         return True
 
     count = 1
-    for i in range(1, 8):
+    for i in range(1, 15):
         xx = x + i
         yy = y - i
-        if 0 <= xx < 8 and 0 <= yy < 8 and my_board[xx][yy] == 1:
+        if 0 <= xx < 15 and 0 <= yy < 15 and my_board[xx][yy] == 1:
             count += 1
-    for i in range(1, 8):
+    for i in range(1, 15):
         xx = x - i
         yy = y + i
-        if 0 <= xx < 8 and 0 <= yy < 8 and my_board[xx][yy] == 1:
+        if 0 <= xx < 15 and 0 <= yy < 15 and my_board[xx][yy] == 1:
             count += 1
     if count == limit:
         return True
@@ -91,10 +91,10 @@ class ReversiEnv:
     def step(self, action):
         """
 
-        :param int|None action: move pos=0 ~ 63 (0=top left, 7 top right, 63 bottom right), None is resign
+        :param int|None action: move pos=0 ~ 224 (0=top left, 14 top right, 224 bottom right), None is resign
         :return:
         """
-        assert action is None or 0 <= action <= 63, f"Illegal action={action}"
+        assert action is None or 0 <= action <= 224, f"Illegal action={action}"
 
         if action is None:
             self._resigned()
@@ -122,7 +122,7 @@ class ReversiEnv:
         # else:  # there is no legal moves for me and enemy.
         #     self._game_over()
 
-        if is_game_over(own, action) or sum(self.board.number_of_black_and_white) == 64:
+        if is_game_over(own, action) or sum(self.board.number_of_black_and_white) == 225:
             self._game_over()
         else:
             self.change_to_next_player()
@@ -133,7 +133,7 @@ class ReversiEnv:
     def _game_over(self):
         self.done = True
         if self.winner is None:
-            if sum(self.board.number_of_black_and_white) == 64:
+            if sum(self.board.number_of_black_and_white) == 225:
                 self.winner = Winner.draw
                 return
             if self.next_player == Player.black:

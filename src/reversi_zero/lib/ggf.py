@@ -35,7 +35,7 @@ def parse_ggf(ggf):
 def convert_move_to_action(move_str: str):
     """
 
-    :param move_str: A1 -> 0, H8 -> 63
+    :param move_str: A1 -> 0, H8 -> 224
     :return:
     """
     if move_str[:2].lower() == "pa":
@@ -43,7 +43,7 @@ def convert_move_to_action(move_str: str):
     pos = move_str.lower()
     y = ord(pos[0]) - ord("a")
     x = int(pos[1]) - 1
-    return y * 8 + x
+    return y * 15 + x
 
 
 def convert_action_to_move(action):
@@ -54,8 +54,8 @@ def convert_action_to_move(action):
     """
     if action is None:
         return "PA"
-    y = action // 8
-    x = action % 8
+    y = action // 15
+    x = action % 15
     return chr(ord("A") + y) + str(x + 1)
 
 
@@ -79,7 +79,7 @@ def make_ggf_string(black_name=None, white_name=None, dt=None, moves=None, resul
     :return:
     """
     ggf = '(;GM[Othello]PC[RAZSelf]DT[%(datetime)s]PB[%(black_name)s]PW[%(white_name)s]RE[%(result)s]TI[%(time)s]' \
-          'TY[8]BO[8 ---------------------------O*------*O--------------------------- *]%(move_list)s;)'
+          'TY[15]BO[15 ---------------------------O*------*O--------------------------- *]%(move_list)s;)'
     dt = dt or datetime.utcnow()
 
     move_list = []

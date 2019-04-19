@@ -61,9 +61,9 @@ class ReversiPlayer:
 
     @staticmethod
     def create_mtcs_info():
-        return MCTSInfo(defaultdict(lambda: np.zeros((64,))),
-                        defaultdict(lambda: np.zeros((64,))),
-                        defaultdict(lambda: np.zeros((64,))))
+        return MCTSInfo(defaultdict(lambda: np.zeros((225,))),
+                        defaultdict(lambda: np.zeros((225,))),
+                        defaultdict(lambda: np.zeros((225,))))
 
     def var_q(self, key):
         return self.var_w[key] / (self.var_n[key] + 1e-5)
@@ -74,7 +74,7 @@ class ReversiPlayer:
         :param own: BitBoard
         :param enemy:  BitBoard
         :param CallbackInMCTS callback_in_mtcs:
-        :return action=move pos=0 ~ 63 (0=top left, 7 top right, 63 bottom right)
+        :return action=move pos=0 ~ 224 (0=top left, 14 top right, 224 bottom right)
         """
         action_with_eval = self.action_with_evaluation(own, enemy, callback_in_mtcs=callback_in_mtcs)
         return action_with_eval.action
@@ -87,7 +87,7 @@ class ReversiPlayer:
         :param CallbackInMCTS callback_in_mtcs:
         :rtype: ActionWithEvaluation
         :return ActionWithEvaluation(
-                    action=move pos=0 ~ 63 (0=top left, 7 top right, 63 bottom right),
+                    action=move pos=0 ~ 224 (0=top left, 14 top right, 224 bottom right),
                     n=N of the action,
                     q=W/N of the action,
                 )
@@ -109,7 +109,7 @@ class ReversiPlayer:
                 self.bypass_first_move(key)
 
             policy = self.calc_policy(own, enemy)
-            action = int(np.random.choice(range(64), p=policy))
+            action = int(np.random.choice(range(225), p=policy))
             action_by_value = int(np.argmax(self.var_q(key) + (self.var_n[key] > 0)*100))
             value_diff = self.var_q(key)[action] - self.var_q(key)[action_by_value]
 
@@ -141,7 +141,7 @@ class ReversiPlayer:
                         list(self.var_q(next_key)), list(self.var_n[next_key]))
 
     def bypass_first_move(self, key):
-        legal_array = bit_to_array(find_correct_moves(key.black, key.white), 64)
+        legal_array = bit_to_array(find_correct_moves(key.black, key.white), 225)
         action = np.argmax(legal_array)
         self.var_n[key][action] = 1
         self.var_w[key][action] = 0
@@ -152,7 +152,7 @@ class ReversiPlayer:
         if action is None:
             return None
         # logger.debug(f"action_by_searching: score={score}")
-        policy = np.zeros(64)
+        policy = np.zeros(225)
         policy[action] = 1
         self.var_n[key][action] = 999
         self.var_w[key][action] = np.sign(score) * 999
@@ -166,7 +166,7 @@ class ReversiPlayer:
     def add_data_to_move_buffer_with_8_symmetries(self, own, enemy, policy):
         for flip in [False, True]:
             for rot_right in range(4):
-                own_saved, enemy_saved, policy_saved = own, enemy, policy.reshape((8, 8))
+                own_saved, enemy_saved, policy_saved = own, enemy, policy.reshape((15, 15))
                 if flip:
                     own_saved = flip_vertical(own_saved)
                     enemy_saved = flip_vertical(enemy_saved)
@@ -176,7 +176,7 @@ class ReversiPlayer:
                         own_saved = rotate90(own_saved)
                         enemy_saved = rotate90(enemy_saved)
                     policy_saved = np.rot90(policy_saved, k=-rot_right)
-                self.moves.append([(own_saved, enemy_saved), list(policy_saved.reshape((64, )))])
+                self.moves.append([(own_saved, enemy_saved), list(policy_saved.reshape((225, )))])
 
     def get_next_key(self, own, enemy, action):
         env = ReversiEnv().update(own, enemy, Player.black)
@@ -240,7 +240,7 @@ class ReversiPlayer:
             if action:
                 score = score if env.next_player == Player.black else -score
                 leaf_v = np.sign(score)
-                leaf_p = np.zeros(64)
+                leaf_p = np.zeros(225)
                 leaf_p[action] = 1
                 self.var_n[key][action] += 1
                 self.var_w[key][action] += leaf_v
@@ -304,8 +304,8 @@ class ReversiPlayer:
         for i in range(rotate_right_num):
             black, white = rotate90(black), rotate90(white)  # rotate90: rotate bitboard RIGHT 1 time
 
-        black_ary = bit_to_array(black, 64).reshape((8, 8))
-        white_ary = bit_to_array(white, 64).reshape((8, 8))
+        black_ary = bit_to_array(black, 225).reshape((15, 15))
+        white_ary = bit_to_array(white, 225).reshape((15, 15))
         state = [black_ary, white_ary] if env.next_player == Player.black else [white_ary, black_ary]
         future = await self.predict(np.array(state))  # type: Future
         await future
@@ -313,12 +313,12 @@ class ReversiPlayer:
 
         # reverse rotate and flip about leaf_p
         if rotate_right_num > 0 or is_flip_vertical:  # reverse rotation and flip. rot -> flip.
-            leaf_p = leaf_p.reshape((8, 8))
+            leaf_p = leaf_p.reshape((15, 15))
             if rotate_right_num > 0:
                 leaf_p = np.rot90(leaf_p, k=rotate_right_num)  # rot90: rotate matrix LEFT k times
             if is_flip_vertical:
                 leaf_p = np.flipud(leaf_p)
-            leaf_p = leaf_p.reshape((64, ))
+            leaf_p = leaf_p.reshape((225, ))
 
         self.var_p[key] = leaf_p  # P is value for next_player (black or white)
         self.var_p[another_side_key] = leaf_p
@@ -343,7 +343,7 @@ class ReversiPlayer:
             item_list = [q.get_nowait() for _ in range(q.qsize())]  # type: list[QueueItem]
             #logger.debug(f"predicting {len(item_list)} items")
             data = np.array([x.state for x in item_list])
-            policy_ary, value_ary = self.api.predict(data)  # shape=(N, 2, 8, 8)
+            policy_ary, value_ary = self.api.predict(data)  # shape=(N, 2, 15, 15)
             #logger.debug(f"predicted {len(item_list)} items")
             for p, v, item in zip(policy_ary, value_ary, item_list):
                 item.future.set_result((p, v))
@@ -377,7 +377,7 @@ class ReversiPlayer:
             return self.calc_policy_by_tau_1(key)
         else:
             action = np.argmax(self.var_n[key])  # tau = 0
-            ret = np.zeros(64)
+            ret = np.zeros(225)
             ret[action] = 1
             return ret
 
@@ -404,7 +404,7 @@ class ReversiPlayer:
         p_ = self.var_p[key]
 
         # re-normalize in legal moves
-        p_ = p_ * bit_to_array(legal_moves, 64)
+        p_ = p_ * bit_to_array(legal_moves, 225)
         if np.sum(p_) > 0:
             # decay policy gradually in the end phase
             _pc = self.config.play
@@ -418,10 +418,10 @@ class ReversiPlayer:
 
         u_ = self.play_config.c_puct * p_ * xx_ / (1 + self.var_n[key])
         if env.next_player == Player.black:
-            v_ = (self.var_q(key) + u_ + 1000) * bit_to_array(legal_moves, 64)
+            v_ = (self.var_q(key) + u_ + 1000) * bit_to_array(legal_moves, 225)
         else:
             # When enemy's selecting action, flip Q-Value.
-            v_ = (-self.var_q(key) + u_ + 1000) * bit_to_array(legal_moves, 64)
+            v_ = (-self.var_q(key) + u_ + 1000) * bit_to_array(legal_moves, 225)
 
         # noinspection PyTypeChecker
         action_t = int(np.argmax(v_))

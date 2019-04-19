@@ -61,7 +61,7 @@ class ReversiSolver:
         else:
             legal_moves = find_correct_moves(white, black)
 
-        action_list = [idx for idx in range(64) if legal_moves & (1 << idx)]
+        action_list = [idx for idx in range(225) if legal_moves & (1 << idx)]
         score_list = np.zeros(len(action_list), dtype=int)
         for i, action in enumerate(action_list):
             # env.update(black, white, next_player)

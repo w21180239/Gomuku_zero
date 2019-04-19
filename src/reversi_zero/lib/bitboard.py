@@ -1,10 +1,16 @@
-# http://primenumber.hatenadiary.jp/entry/2016/12/26/063226
+#有巨大问题！！！！
 import numpy as np
 
 BLACK_CHR = "O"
 WHITE_CHR = "X"
 EXTRA_CHR = "*"
 
+def get_num(length):
+    re = 1
+    for i in range(length - 1):
+        re <<= 1
+        re += 1
+    return re
 
 def board_to_string(black, white, with_edge=True, extra=None):
     """
@@ -22,9 +28,9 @@ def board_to_string(black, white, with_edge=True, extra=None):
     :param extra: bitboard
     :return:
     """
-    array = [" "] * 64
+    array = [" "] * 225
     extra = extra or 0
-    for i in range(64):
+    for i in range(225):
         if black & 1:
             array[i] = BLACK_CHR
         elif white & 1:
@@ -38,10 +44,10 @@ def board_to_string(black, white, with_edge=True, extra=None):
     ret = ""
     if with_edge:
         ret = "#" * 10 + "\n"
-    for y in range(8):
+    for y in range(15):
         if with_edge:
             ret += "#"
-        ret += "".join(array[y * 8:y * 8 + 8])
+        ret += "".join(array[y * 15:y * 15 + 15])
         if with_edge:
             ret += "#"
         ret += "\n"
@@ -52,20 +58,8 @@ def board_to_string(black, white, with_edge=True, extra=None):
 
 def find_correct_moves(own, enemy):
     """return legal moves"""
-    # left_right_mask = 0x7e7e7e7e7e7e7e7e  # Both most left-right edge are 0, else 1
-    # top_bottom_mask = 0x00ffffffffffff00  # Both most top-bottom edge are 0, else 1
-    # mask = left_right_mask & top_bottom_mask
-    # mobility = 0
-    # mobility |= search_offset_left(own, enemy, left_right_mask, 1)  # Left
-    # mobility |= search_offset_left(own, enemy, mask, 9)  # Left Top
-    # mobility |= search_offset_left(own, enemy, top_bottom_mask, 8)  # Top
-    # mobility |= search_offset_left(own, enemy, mask, 7)  # Top Right
-    # mobility |= search_offset_right(own, enemy, left_right_mask, 1)  # Right
-    # mobility |= search_offset_right(own, enemy, mask, 9)  # Bottom Right
-    # mobility |= search_offset_right(own, enemy, top_bottom_mask, 8)  # Bottom
-    # mobility |= search_offset_right(own, enemy, mask, 7)  # Left bottom
 
-    return 0xffffffffffffffff ^ own ^ enemy
+    return get_num(225) ^ own ^ enemy
 
 
 def calc_flip(pos, own, enemy):
@@ -76,16 +70,18 @@ def calc_flip(pos, own, enemy):
     :param enemy: bitboard
     :return: flip stones of enemy when I place stone at pos.
     """
-    assert 0 <= pos <= 63, f"pos={pos}"
+    assert 0 <= pos <= 224, f"pos={pos}"
     f1 = _calc_flip_half(pos, own, enemy)
-    f2 = _calc_flip_half(63 - pos, rotate180(own), rotate180(enemy))
+    f2 = _calc_flip_half(224 - pos, rotate180(own), rotate180(enemy))
     return f1 | rotate180(f2)
 
 
 def _calc_flip_half(pos, own, enemy):
-    el = [enemy, enemy & 0x7e7e7e7e7e7e7e7e, enemy & 0x7e7e7e7e7e7e7e7e, enemy & 0x7e7e7e7e7e7e7e7e]
-    masks = [0x0101010101010100, 0x00000000000000fe, 0x0002040810204080, 0x8040201008040200]
-    masks = [b64(m << pos) for m in masks]
+    el = [enemy, enemy & 0xfff9fff3ffe7ffcfff9fff3ffe7ffcfff9fff3ffe7ffcfff9fff3ffe, enemy & 0xfff9fff3ffe7ffcfff9fff3ffe7ffcfff9fff3ffe7ffcfff9fff3ffe, enemy & 0xfff9fff3ffe7ffcfff9fff3ffe7ffcfff9fff3ffe7ffcfff9fff3ffe]
+    masks = [0x40008001000200040008001000200040008001000200040008000, 0x7ffe,
+             0x10004001000400100040010004001000400100040010004000,
+             0x100010001000100010001000100010001000100010001000100010000]
+    masks = [b225(m << pos) for m in masks]
     flipped = 0
     for e, mask in zip(el, masks):
         outflank = mask & ((e | ~mask) + 1) & own
@@ -118,16 +114,16 @@ def search_offset_right(own, enemy, mask, offset):
 
 
 def flip_vertical(x):
-    k1 = 0x00FF00FF00FF00FF
-    k2 = 0x0000FFFF0000FFFF
-    x = ((x >> 8) & k1) | ((x & k1) << 8)
-    x = ((x >> 16) & k2) | ((x & k2) << 16)
-    x = (x >> 32) | b64(x << 32)
+    k1 = 0x3fff8000fffe0003fff8000fffe0003fff8000fffe0003fff8000
+    k2 = 0x3fffffff00000003fffffff00000003fffffff00000003fffffff00000003fffffff00000003fffffff00000003fffffff00000003fffffff
+    x = ((x >> 15) & k1) | ((x & k1) << 15)
+    x = ((x >> 30) & k2) | ((x & k2) << 30)
+    x = (x >> 60) | b225(x << 60)
     return x
 
 
-def b64(x):
-    return x & 0xFFFFFFFFFFFFFFFF
+def b225(x):
+    return x & get_num(225)
 
 
 def bit_count(x):
@@ -139,15 +135,15 @@ def bit_to_array(x, size):
     return np.array(list(reversed((("0" * size) + bin(x)[2:])[-size:])), dtype=np.uint8)
 
 
-def flip_diag_a1h8(x):
+def flip_diag_a1h8(x): #有巨大问题！！！！
     k1 = 0x5500550055005500
     k2 = 0x3333000033330000
     k4 = 0x0f0f0f0f00000000
-    t = k4 & (x ^ b64(x << 28))
+    t = k4 & (x ^ b225(x << 28))
     x ^= t ^ (t >> 28)
-    t = k2 & (x ^ b64(x << 14))
+    t = k2 & (x ^ b225(x << 14))
     x ^= t ^ (t >> 14)
-    t = k1 & (x ^ b64(x << 7))
+    t = k1 & (x ^ b225(x << 7))
     x ^= t ^ (t >> 7)
     return x
 
@@ -164,7 +160,7 @@ def dirichlet_noise_of_mask(mask, alpha):
     num_1 = bit_count(mask)
     noise = list(np.random.dirichlet([alpha] * num_1))
     ret_list = []
-    for i in range(64):
+    for i in range(225):
         if (1 << i) & mask:
             ret_list.append(noise.pop(0))
         else:

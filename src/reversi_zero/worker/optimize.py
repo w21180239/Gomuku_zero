@@ -216,14 +216,14 @@ class OptimizeWorker:
         """
 
         :param data: format is SelfPlayWorker.buffer
-            list of [(own: bitboard, enemy: bitboard), [policy: float 64 items], z: number]
+            list of [(own: bitboard, enemy: bitboard), [policy: float 225 items], z: number]
         :return:
         """
         state_list = []
         policy_list = []
         z_list = []
         for state, policy, z in data:
-            own, enemy = bit_to_array(state[0], 64).reshape((8, 8)), bit_to_array(state[1], 64).reshape((8, 8))
+            own, enemy = bit_to_array(state[0], 225).reshape((15, 15)), bit_to_array(state[1], 225).reshape((15, 15))
             state_list.append([own, enemy])
             policy_list.append(policy)
             z_list.append(z)

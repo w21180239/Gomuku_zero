@@ -9,9 +9,9 @@ def parse_to_bitboards(string: str):
             continue
         for i, ch in enumerate(line[1:9]):
             if ch == 'O':
-                black |= 1 << (y*8+i)
+                black |= 1 << (y*15+i)
             elif ch == 'X':
-                white |= 1 << (y*8+i)
+                white |= 1 << (y*15+i)
         y += 1
 
     return black, white

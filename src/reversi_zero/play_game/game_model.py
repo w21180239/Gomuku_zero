@@ -56,9 +56,9 @@ class PlayWithHuman:
         return self.env.next_player
 
     def stone(self, px, py):
-        """left top=(0, 0), right bottom=(7,7)"""
-        pos = int(py * 8 + px)
-        assert 0 <= pos < 64
+        """left top=(0, 0), right bottom=(14,14)"""
+        pos = int(py * 15 + px)
+        assert 0 <= pos < 225
         bit = 1 << pos
         if self.env.board.black & bit:
             return Player.black
@@ -71,8 +71,8 @@ class PlayWithHuman:
         return self.env.observation.number_of_black_and_white
 
     def available(self, px, py):
-        pos = int(py * 8 + px)
-        if pos < 0 or 64 <= pos:
+        pos = int(py * 15 + px)
+        if pos < 0 or 225 <= pos:
             return False
         own, enemy = self.env.board.black, self.env.board.white
         if self.human_color == Player.white:
@@ -81,8 +81,8 @@ class PlayWithHuman:
         return legal_moves & (1 << pos)
 
     def move(self, px, py):
-        pos = int(py * 8 + px)
-        assert 0 <= pos < 64
+        pos = int(py * 15 + px)
+        assert 0 <= pos < 225
 
         if self.next_player != self.human_color:
             return False

@@ -103,11 +103,11 @@ class Frame(wx.Frame):
         # calculate coordinate from window coordinate
         event_x, event_y = event.GetX(), event.GetY()
         w, h = self.panel.GetSize()
-        x = int(event_x / (w / 8))
-        y = int(event_y / (h / 8))
+        x = int(event_x / (w / 15))
+        y = int(event_y / (h / 15))
 
         if self.is_flip_vertical:
-            y = 7-y
+            y = 14-y
 
         if not self.model.available(x, y):
             return
@@ -144,8 +144,8 @@ class Frame(wx.Frame):
         dc.DrawRectangle(0, 0, w, h)
         # grid
         dc.SetBrush(wx.Brush("black"))
-        px, py = w / 8, h / 8
-        for y in range(8):
+        px, py = w / 15, h / 15
+        for y in range(15):
             dc.DrawLine(y * px, 0, y * px, h)
             dc.DrawLine(0, y * py, w, y * py)
         dc.DrawLine(w - 1, 0, w - 1, h - 1)
@@ -153,18 +153,18 @@ class Frame(wx.Frame):
 
         # stones
         brushes = {Player.white: wx.Brush("white"), Player.black: wx.Brush("black")}
-        for y in range(8):
-            vy = 7-y if self.is_flip_vertical else y
-            for x in range(8):
+        for y in range(15):
+            vy = 14-y if self.is_flip_vertical else y
+            for x in range(15):
                 c = self.model.stone(x, y)
                 if c is not None:
                     dc.SetBrush(brushes[c])
                     dc.DrawEllipse(x * px, vy * py, px, py)
                 if self.model.last_history:
-                    q_value = self.model.last_history.values[y*8+x]
-                    n_value = self.model.last_history.visit[y*8+x]
-                    enemy_q_value = - self.model.last_history.enemy_values[y*8+x]
-                    enemy_n_value = self.model.last_history.enemy_visit[y*8+x]
+                    q_value = self.model.last_history.values[y*15+x]
+                    n_value = self.model.last_history.visit[y*15+x]
+                    enemy_q_value = - self.model.last_history.enemy_values[y*15+x]
+                    enemy_n_value = self.model.last_history.enemy_visit[y*15+x]
 
                     dc.SetTextForeground(wx.Colour("blue"))
                     if n_value:
