@@ -186,6 +186,7 @@ class TrainerConfig(ConfigBase):
             (150000, 0.001),
             (300000, 0.0001),
         ]
+        self.random_rate = 0.2
 
 
 

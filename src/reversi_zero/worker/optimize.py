@@ -18,14 +18,14 @@ from reversi_zero.lib.data_helper import get_game_data_filenames, read_game_data
     get_next_generation_model_dirs
 from reversi_zero.lib.model_helpler import load_best_model_weight
 from reversi_zero.lib.tensorboard_step_callback import TensorBoardStepCallback
-import random
+from random import shuffle
 
 logger = getLogger(__name__)
 
 
 def start(config: Config):
     tf_util.set_session_config(allow_growth=True)
-    return OptimizeWorker(config)
+    return OptimizeWorker(config).start()
 
 
 class OptimizeWorker:
@@ -58,7 +58,7 @@ class OptimizeWorker:
             )
             callbacks.append(tb_callback)
 
-        for i in range(self.config.trainer.total_epoch_per_run):
+        while True:
             self.load_play_data()
             if self.dataset_size < self.config.trainer.min_data_size_to_learn:
                 logger.info(f"dataset_size={self.dataset_size} is less than {self.config.trainer.min_data_size_to_learn}")
@@ -165,8 +165,8 @@ class OptimizeWorker:
 
     def load_play_data(self):
         filenames = get_game_data_filenames(self.config.resource)
-        random.shuffle(filenames)
-        filenames = filenames[:len(filenames)//5]
+        shuffle(filenames)
+        filenames = filenames[:int(self.config.trainer.random_rate*len(filenames))]
         updated = False
         for filename in filenames:
             if filename in self.loaded_filenames:

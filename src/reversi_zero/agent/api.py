@@ -55,6 +55,7 @@ class MultiProcessReversiModelAPIServer:
         """
         self.config = config
         self.model = None  # type: ReversiModel
+        self.model_list = None
         self.connections = []
 
     def get_api_client(self):
@@ -64,6 +65,7 @@ class MultiProcessReversiModelAPIServer:
 
     def start_serve(self):
         self.model = self.load_model()
+        # self.model_list = self.load_model_list()
         # threading workaround: https://github.com/keras-team/keras/issues/5640
         self.model.model._make_predict_function()
         self.graph = tf.get_default_graph()
@@ -79,6 +81,7 @@ class MultiProcessReversiModelAPIServer:
         while True:
             if last_model_check_time+60 < time():
                 self.try_reload_model()
+                # self.try_reload_model_list()
                 last_model_check_time = time()
                 logger.debug(f"average_prediction_size={np.average(average_prediction_size)}")
                 average_prediction_size = []
@@ -124,6 +127,38 @@ class MultiProcessReversiModelAPIServer:
         except Exception as e:
             logger.error(e)
 
+    def load_model_list(self):
+        model_list = []
+        from reversi_zero.agent.model import ReversiModel
+        for i in range(self.config.model.num_gpus):
+            with tf.device('/gpu:' + str(i)):
+                model = ReversiModel(self.config)
+                loaded = False
+                if not self.config.opts.new:
+                    if self.config.play.use_newest_next_generation_model:
+                        loaded = reload_newest_next_generation_model_if_changed(model) or load_best_model_weight(model)
+                    else:
+                        loaded = load_best_model_weight(model) or reload_newest_next_generation_model_if_changed(model)
+
+                if not loaded:
+                    model.build()
+                    save_as_best_model(model)
+                model_list.append(model)
+            print(f'Create model on GPU#{i}')
+
+        return model_list
+
+    def try_reload_model_list(self):
+        try:
+            logger.debug("check model list")
+            for i in range(self.config.model.num_gpus):
+                with tf.device('/gpu:' + str(i)):
+                    if self.config.play.use_newest_next_generation_model:
+                        reload_newest_next_generation_model_if_changed(self.model_list[i], clear_session=True)
+                    else:
+                        reload_best_model_weight_if_changed(self.model_list[i], clear_session=True)
+        except Exception as e:
+            logger.error(e)
 
 class MultiProcessReversiModelAPIClient(ReversiModelAPI):
     def __init__(self, config: Config, agent_model, conn):

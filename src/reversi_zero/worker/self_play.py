@@ -4,11 +4,12 @@ from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime
 from logging import getLogger
 from random import random
-from time import time
+from time import time,sleep
 from traceback import print_stack
 
 import numpy as np
 from multiprocessing import Manager, Lock
+
 
 from reversi_zero.agent.api import MultiProcessReversiModelAPIServer
 from reversi_zero.agent.player import ReversiPlayer
@@ -21,61 +22,38 @@ from reversi_zero.lib.file_util import read_as_int
 from reversi_zero.lib.ggf import convert_action_to_move, make_ggf_string
 from reversi_zero.lib.tensorboard_logger import TensorBoardLogger
 import tensorflow as tf
-import os
-import time
+
 logger = getLogger(__name__)
 
 
-def start(config: Config,round_):
+def start(config: Config):
     tf_util.set_session_config(allow_growth=True)
-    
     api_server_list = [MultiProcessReversiModelAPIServer(config) for i in range(config.model.num_gpus)]
+    # api_server = MultiProcessReversiModelAPIServer(config)
+    # api_server.start_serve()
     process_num = config.play_data.multi_process_num
     for i in range(config.model.num_gpus):
         os.environ["CUDA_VISIBLE_DEVICES"] = str(i)
-        with tf.device('/gpu:'+str(i)):
+        with tf.device('/gpu:' + str(i)):
             api_server_list[i].start_serve()
-            print('/gpu:'+str(i))
-    print('wait for all server is ready...')
-    time.sleep(10)
-    try:
-        with Manager() as manager:
-            shared_var = SharedVar(manager, game_idx=read_as_int(config.resource.self_play_game_idx_file) or 0)
-            with ProcessPoolExecutor(max_workers=process_num) as executor:
-                futures = []
-                for j in range(config.model.num_gpus):
-                    for i in range(j,process_num,config.model.num_gpus):
-                        play_worker = SelfPlayWorker(config, env=ReversiEnv(), api=api_server_list[j].get_api_client(),
-                                                    shared_var=shared_var, worker_index=i,round_=round_)
-                        futures.append(executor.submit(play_worker.start))
-                        print(f'{i} th thread is to gpu {j}')
-    except:
-        pass
-    os.environ["CUDA_VISIBLE_DEVICES"] = '0,1,2,3'
-    
-def build_api_server(config):
-    api_server_list = [MultiProcessReversiModelAPIServer(config) for i in range(config.model.num_gpus)]
-    process_num = config.play_data.multi_process_num
-    for i in range(config.model.num_gpus):
-        with tf.device('/gpu:'+str(i)):
-            api_server_list[i].start_serve()
-            print('/gpu:'+str(i))
-    return api_server_list
+        print('/gpu:' + str(i))
+    # sleep(5)
 
-def serve(api_server_list):
-    try:
-        with Manager() as manager:
-            shared_var = SharedVar(manager, game_idx=read_as_int(config.resource.self_play_game_idx_file) or 0)
-            with ProcessPoolExecutor(max_workers=process_num) as executor:
-                futures = []
-                for j in range(config.model.num_gpus):
-                    for i in range(j,process_num,config.model.num_gpus):
-                        play_worker = SelfPlayWorker(config, env=ReversiEnv(), api=api_server_list[j].get_api_client(),
-                                                    shared_var=shared_var, worker_index=i,round_=round_)
-                        futures.append(executor.submit(play_worker.start))
-                        print(f'{i} th thread is to gpu {j}')
-    except:
-        pass
+    with Manager() as manager:
+        shared_var = SharedVar(manager, game_idx=read_as_int(config.resource.self_play_game_idx_file) or 0)
+        with ProcessPoolExecutor(max_workers=process_num) as executor:
+            futures = []
+            # for i in range(process_num):
+            #     play_worker = SelfPlayWorker(config, env=ReversiEnv(), api=api_server.get_api_client(),
+            #                                  shared_var=shared_var, worker_index=i)
+            #     futures.append(executor.submit(play_worker.start))
+            for j in range(config.model.num_gpus):
+                for i in range(j, process_num, config.model.num_gpus):
+                    play_worker = SelfPlayWorker(config, env=ReversiEnv(), api=api_server_list[j].get_api_client(),
+                                                 shared_var=shared_var, worker_index=i)
+                    futures.append(executor.submit(play_worker.start))
+                    print(f'{i} th thread is to gpu {j}')
+
 
 class SharedVar:
     def __init__(self, manager, game_idx: int):
@@ -98,7 +76,7 @@ class SharedVar:
 
 
 class SelfPlayWorker:
-    def __init__(self, config: Config, env, api, shared_var, worker_index=0,round_=0):
+    def __init__(self, config: Config, env, api, shared_var, worker_index=0):
         """
 
         :param config:
@@ -120,7 +98,6 @@ class SelfPlayWorker:
         self.tensor_board = None  # type: TensorBoardLogger
         self.move_history = None  # type: MoveHistory
         self.move_history_buffer = []  # type: list[MoveHistory]
-        self.round_ = round_
 
     def start(self):
         try:
@@ -139,7 +116,7 @@ class SelfPlayWorker:
         mtcs_info = None
         local_idx = 0
 
-        for _ in range(self.config.play.games_per_loop):
+        while True:
             np.random.seed(None)
             local_idx += 1
             game_idx = self.shared_var.game_idx
@@ -155,14 +132,14 @@ class SelfPlayWorker:
             # just log
             end_time = time()
             time_spent = end_time - start_time
-            logger.debug(f"Round{self.round_}  play game {game_idx} time={time_spent} sec, "
+            logger.debug(f"play game {game_idx} time={time_spent} sec, "
                          f"turn={env.turn}:{env.board.number_of_black_and_white}:{env.winner}")
 
             # log play info to tensor board
             prefix = "self"
-            log_info = {f"Round{self.round_}  {prefix}/time": time_spent, f"{prefix}/turn": env.turn}
+            log_info = {f"{prefix}/time": time_spent, f"{prefix}/turn": env.turn}
             if mtcs_info:
-                log_info[f"Round{self.round_}  {prefix}/mcts_buffer_size"] = len(mtcs_info.var_p)
+                log_info[f"{prefix}/mcts_buffer_size"] = len(mtcs_info.var_p)
             self.tensor_board.log_scaler(log_info, game_idx)
 
             # reset MCTS info per X games
@@ -180,7 +157,7 @@ class SelfPlayWorker:
         self.env.reset()
         enable_resign = self.config.play.disable_resignation_rate <= random()
         self.config.play.simulation_num_per_move = self.decide_simulation_num_per_move(last_game_idx)
-        logger.debug(f"Round{self.round_}  simulation_num_per_move = {self.config.play.simulation_num_per_move}")
+        logger.debug(f"simulation_num_per_move = {self.config.play.simulation_num_per_move}")
         self.black = self.create_reversi_player(enable_resign=enable_resign, mtcs_info=mtcs_info)
         self.white = self.create_reversi_player(enable_resign=enable_resign, mtcs_info=mtcs_info)
         if not enable_resign:
@@ -226,7 +203,7 @@ class SelfPlayWorker:
         rc = self.config.resource
         game_id = datetime.now().strftime("%Y%m%d-%H%M%S.%f")
         path = os.path.join(rc.play_data_dir, rc.play_data_filename_tmpl % game_id)
-        logger.info(f"Round{self.round_}  save play data to {path}")
+        logger.info(f"save play data to {path}")
         write_game_data_to_file(path, self.buffer)
         self.buffer = []
 
@@ -293,14 +270,14 @@ class SelfPlayWorker:
             self.config.play.resign_threshold -= self.config.play.resign_threshold_delta
         else:
             self.config.play.resign_threshold += self.config.play.resign_threshold_delta
-        logger.debug(f"Round{self.round_}  update resign_threshold: {old_threshold} -> {self.config.play.resign_threshold}")
+        logger.debug(f"update resign_threshold: {old_threshold} -> {self.config.play.resign_threshold}")
         self.reset_false_positive_count()
 
     def decide_simulation_num_per_move(self, idx):
         ret = read_as_int(self.config.resource.force_simulation_num_file)
 
         if ret:
-            logger.debug(f"Round{self.round_}  loaded simulation num from file: {ret}")
+            logger.debug(f"loaded simulation num from file: {ret}")
             return ret
 
         for min_idx, num in self.config.play.schedule_of_simulation_num_per_move:

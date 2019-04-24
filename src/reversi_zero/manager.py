@@ -10,7 +10,7 @@ from .config import Config
 
 logger = getLogger(__name__)
 
-CMD_LIST = ['self', 'opt', 'eval', 'play_gui', 'nboard','whole_process']
+CMD_LIST = ['self', 'opt', 'eval', 'play_gui', 'nboard']
 
 
 def create_parser():
@@ -63,16 +63,3 @@ def start():
     elif args.cmd == 'nboard':
         from .play_game import nboard
         return nboard.start(config)
-    elif args.cmd == 'whole_process':
-        from .worker import self_play
-        from .worker import optimize
-        from reversi_zero.lib import tf_util
-        o = optimize.start(config)
-        api_server_list = self_play.build_api_server(config)
-        tf_util.set_session_config(allow_growth=True)
-        round_=1
-        while True:
-            self_play.start(config,round_)
-            tf_util.set_session_config(allow_growth=True)
-            o.start()
-            round_+=1
