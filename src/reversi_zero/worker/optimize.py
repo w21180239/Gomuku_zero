@@ -62,11 +62,12 @@ class OptimizeWorker:
             self.load_play_data()
             if self.dataset_size < self.config.trainer.min_data_size_to_learn:
                 logger.info(f"dataset_size={self.dataset_size} is less than {self.config.trainer.min_data_size_to_learn}")
-                sleep(10)
+                sleep(60)
                 continue
             self.update_learning_rate(total_steps)
             total_steps += self.train_epoch(self.config.trainer.epoch_to_checkpoint, callbacks)
             self.count_up_training_count_and_delete_self_play_data_files()
+            sleep(60)
 
         if tb_callback:  # This code is never reached. But potentially this is required.
             tb_callback.close()

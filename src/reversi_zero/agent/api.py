@@ -56,6 +56,7 @@ class MultiProcessReversiModelAPIServer:
         self.config = config
         self.model = None  # type: ReversiModel
         self.model_list = None
+        self.gpu_num = 0
         self.connections = []
 
     def get_api_client(self):
@@ -63,8 +64,10 @@ class MultiProcessReversiModelAPIServer:
         self.connections.append(me)
         return MultiProcessReversiModelAPIClient(self.config, None, you)
 
-    def start_serve(self):
-        self.model = self.load_model()
+    def start_serve(self,num):
+        self.gpu_num = num
+        with tf.device('/gpu:' + str(self.gpu_num)):
+            self.model = self.load_model()
         # self.model_list = self.load_model_list()
         # threading workaround: https://github.com/keras-team/keras/issues/5640
         self.model.model._make_predict_function()
@@ -79,8 +82,9 @@ class MultiProcessReversiModelAPIServer:
         average_prediction_size = []
         last_model_check_time = time()
         while True:
-            if last_model_check_time+60 < time():
-                self.try_reload_model()
+            if last_model_check_time+600 < time():
+                with tf.device('/gpu:' + str(self.gpu_num)):
+                    self.try_reload_model()
                 # self.try_reload_model_list()
                 last_model_check_time = time()
                 logger.debug(f"average_prediction_size={np.average(average_prediction_size)}")

@@ -33,11 +33,8 @@ def start(config: Config):
     # api_server.start_serve()
     process_num = config.play_data.multi_process_num
     for i in range(config.model.num_gpus):
-        os.environ["CUDA_VISIBLE_DEVICES"] = str(i)
-        with tf.device('/gpu:' + str(i)):
-            api_server_list[i].start_serve()
-        print('/gpu:' + str(i))
-    # sleep(5)
+        api_server_list[i].start_serve(i)
+        print(f'Create server on GPU#{i}')
 
     with Manager() as manager:
         shared_var = SharedVar(manager, game_idx=read_as_int(config.resource.self_play_game_idx_file) or 0)
@@ -52,7 +49,7 @@ def start(config: Config):
                     play_worker = SelfPlayWorker(config, env=ReversiEnv(), api=api_server_list[j].get_api_client(),
                                                  shared_var=shared_var, worker_index=i)
                     futures.append(executor.submit(play_worker.start))
-                    print(f'{i} th thread is to gpu {j}')
+                    print(f'Assign thread {i} to GPU#{j}')
 
 
 class SharedVar:
