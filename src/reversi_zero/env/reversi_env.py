@@ -1,8 +1,8 @@
 import enum
-
 from logging import getLogger
+import re
 
-from reversi_zero.lib.bitboard import board_to_string, calc_flip, bit_count, find_correct_moves, bit_to_array
+from reversi_zero.lib.bitboard import board_to_string, bit_count, bit_to_array
 
 logger = getLogger(__name__)
 # noinspection PyArgumentList
@@ -64,6 +64,25 @@ def is_game_over(own, action):
     return False
 
 
+def bit_is_game_over(own, action):
+    bin_own = f"{own:0225b}"[::-1]
+    x = action // 15
+    y = action % 15
+    row = [i for i in range(15 * x, 15 * (x + 1))]
+    col = [i * 15 + y for i in range(15)]
+    h = [action + i * 16 for i in range(-15, 15) if 0 <= action + i * 16 < 225]
+    z = [action + i * 14 for i in range(-15, 15) if 0 <= action + i * 14 < 225]
+    check_list = [row, col, h, z]
+    for to_check in check_list:
+        tmp = ''
+        for i in to_check:
+            tmp+=bin_own[i]
+        hh = re.findall(r'(1)\1{4}',tmp)
+        if len(hh):
+            return True
+    return False
+
+
 class ReversiEnv:
     def __init__(self):
         self.board = None
@@ -113,8 +132,6 @@ class ReversiEnv:
         self.set_own_and_enemy(own, enemy)
         self.turn += 1
 
-
-
         # if bit_count(find_correct_moves(enemy, own)) > 0:  # there are legal moves for enemy.
         #     self.change_to_next_player()
         # elif bit_count(find_correct_moves(own, enemy)) > 0:  # there are legal moves for me but enemy.
@@ -122,11 +139,10 @@ class ReversiEnv:
         # else:  # there is no legal moves for me and enemy.
         #     self._game_over()
 
-        if is_game_over(own, action) or sum(self.board.number_of_black_and_white) == 225:
+        if bit_is_game_over(own, action) or sum(self.board.number_of_black_and_white) == 225:
             self._game_over()
         else:
             self.change_to_next_player()
-
 
         return self.board, {}
 

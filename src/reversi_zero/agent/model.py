@@ -13,7 +13,7 @@ from keras.layers.merge import Add
 from keras.layers.normalization import BatchNormalization
 from keras.losses import mean_squared_error
 from keras.regularizers import l2
-
+from keras.utils import multi_gpu_model
 from reversi_zero.config import Config
 
 logger = getLogger(__name__)
@@ -24,8 +24,9 @@ class ReversiModel:
         self.config = config
         self.model = None  # type: Model
         self.digest = None
+        self.parallel_model = None  # type: Model
 
-    def build(self):
+    def build(self,build_parallel=False):
         mc = self.config.model
         in_x = x = Input((2, 15, 15))  # [own(8x8), enemy(8x8)]
 
@@ -54,8 +55,12 @@ class ReversiModel:
         x = Flatten()(x)
         x = Dense(mc.value_fc_size, kernel_regularizer=l2(mc.l2_reg), activation="relu")(x)
         value_out = Dense(1, kernel_regularizer=l2(mc.l2_reg), activation="tanh", name="value_out")(x)
+	
+        model = Model(in_x, [policy_out, value_out], name="reversi_model")
+        # print(multi_model.summary())
+        self.model = model
+        self.multi_model = multi_gpu_model(self.model,self.config.model.num_gpus)
 
-        self.model = Model(in_x, [policy_out, value_out], name="reversi_model")
 
     def _build_residual_block(self, x):
         mc = self.config.model
@@ -86,6 +91,7 @@ class ReversiModel:
                 self.model = Model.from_config(json.load(f))
             self.model.load_weights(weight_path)
             self.digest = self.fetch_digest(weight_path)
+            self.parallel_model = multi_gpu_model(self.model,self.config.model.num_gpus)
             logger.debug(f"loaded model digest = {self.digest}")
             return True
         else:

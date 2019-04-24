@@ -177,6 +177,13 @@ class ReversiPlayer:
                         enemy_saved = rotate90(enemy_saved)
                     policy_saved = np.rot90(policy_saved, k=-rot_right)
                 self.moves.append([(own_saved, enemy_saved), list(policy_saved.reshape((225, )))])
+        # for flip in [False, True]:
+        #     own_saved, enemy_saved, policy_saved = own, enemy, policy.reshape((15, 15))
+        #     if flip:
+        #         own_saved = flip_vertical(own_saved)
+        #         enemy_saved = flip_vertical(enemy_saved)
+        #         policy_saved = np.flipud(policy_saved)
+        #     self.moves.append([(own_saved, enemy_saved), list(policy_saved.reshape((225, )))])
 
     def get_next_key(self, own, enemy, action):
         env = ReversiEnv().update(own, enemy, Player.black)

@@ -18,13 +18,14 @@ from reversi_zero.lib.data_helper import get_game_data_filenames, read_game_data
     get_next_generation_model_dirs
 from reversi_zero.lib.model_helpler import load_best_model_weight
 from reversi_zero.lib.tensorboard_step_callback import TensorBoardStepCallback
+import random
 
 logger = getLogger(__name__)
 
 
 def start(config: Config):
-    tf_util.set_session_config(per_process_gpu_memory_fraction=0.65)
-    return OptimizeWorker(config).start()
+    tf_util.set_session_config(allow_growth=True)
+    return OptimizeWorker(config)
 
 
 class OptimizeWorker:
@@ -57,7 +58,7 @@ class OptimizeWorker:
             )
             callbacks.append(tb_callback)
 
-        while True:
+        for i in range(self.config.trainer.total_epoch_per_run):
             self.load_play_data()
             if self.dataset_size < self.config.trainer.min_data_size_to_learn:
                 logger.info(f"dataset_size={self.dataset_size} is less than {self.config.trainer.min_data_size_to_learn}")
@@ -73,7 +74,7 @@ class OptimizeWorker:
     def train_epoch(self, epochs, callbacks):
         tc = self.config.trainer
         state_ary, policy_ary, z_ary = self.dataset
-        self.model.model.fit(state_ary, [policy_ary, z_ary],
+        self.model.parallel_model.fit(state_ary, [policy_ary, z_ary],
                              batch_size=tc.batch_size,
                              callbacks=callbacks,
                              epochs=epochs)
@@ -83,7 +84,7 @@ class OptimizeWorker:
     def compile_model(self):
         self.optimizer = SGD(lr=1e-2, momentum=0.9)
         losses = [objective_function_for_policy, objective_function_for_value]
-        self.model.model.compile(optimizer=self.optimizer, loss=losses)
+        self.model.parallel_model.compile(optimizer=self.optimizer, loss=losses)
 
     def update_learning_rate(self, total_steps):
         # The deepmind paper says
@@ -164,6 +165,8 @@ class OptimizeWorker:
 
     def load_play_data(self):
         filenames = get_game_data_filenames(self.config.resource)
+        random.shuffle(filenames)
+        filenames = filenames[:len(filenames)//5]
         updated = False
         for filename in filenames:
             if filename in self.loaded_filenames:
