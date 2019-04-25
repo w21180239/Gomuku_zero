@@ -45,7 +45,7 @@ def reload_best_model_weight_if_changed(model, clear_session=False):
     return False
 
 
-def reload_newest_next_generation_model_if_changed(model, clear_session=False):
+def reload_newest_next_generation_model_if_changed(model, clear_session=False,config = None):
     """
 
     :param reversi_zero.agent.model.ReversiModel model:
@@ -53,7 +53,9 @@ def reload_newest_next_generation_model_if_changed(model, clear_session=False):
     :return:
     """
     from reversi_zero.lib.data_helper import get_next_generation_model_dirs
-
+    from reversi_zero.agent.model import ReversiModel
+    if config is not None:
+        new_model = ReversiModel(config)
     rc = model.config.resource
     dirs = get_next_generation_model_dirs(rc)
     if not dirs:
@@ -69,7 +71,11 @@ def reload_newest_next_generation_model_if_changed(model, clear_session=False):
             K.clear_session()
         for _ in range(5):
             try:
-                return model.load(config_path, weight_path)
+                if config is not None:
+                    del model
+                    return new_model.load(config_path, weight_path)
+                else:
+                    return model.load(config_path, weight_path)
             except Exception as e:
                 logger.warning(f"error in load model: #{e}")
                 sleep(3)

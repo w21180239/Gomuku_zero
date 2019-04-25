@@ -12,6 +12,9 @@ from reversi_zero.config import Config
 from reversi_zero.lib.model_helpler import reload_newest_next_generation_model_if_changed, load_best_model_weight, \
     save_as_best_model, reload_best_model_weight_if_changed
 import tensorflow as tf
+import os
+import keras.backend as K
+
 
 
 logger = getLogger(__name__)
@@ -64,28 +67,42 @@ class MultiProcessReversiModelAPIServer:
         self.connections.append(me)
         return MultiProcessReversiModelAPIClient(self.config, None, you)
 
-    def start_serve(self,num):
+    def start_serve(self,num=0):
         self.gpu_num = num
-        with tf.device('/gpu:' + str(self.gpu_num)):
-            self.model = self.load_model()
-        # self.model_list = self.load_model_list()
+        # with tf.device('/gpu:' + str(self.gpu_num)):
+        #     self.model = self.load_model()
+        self.model_list = self.load_model_list()
         # threading workaround: https://github.com/keras-team/keras/issues/5640
-        self.model.model._make_predict_function()
+        for model in self.model_list:
+            model.model._make_predict_function()
         self.graph = tf.get_default_graph()
 
         prediction_worker = Thread(target=self.prediction_worker, name="prediction_worker")
         prediction_worker.daemon = True
         prediction_worker.start()
 
+    def ready_to_serve(self,num):
+        self.gpu_num = num
+        with tf.device('/gpu:' + str(self.gpu_num)):
+            self.model = self.load_model()
+        self.model_list = self.load_model_list()
+        self.model.model._make_predict_function()
+        self.graph = tf.get_default_graph()
+
+        prediction_worker = Thread(target=self.prediction_worker, name="prediction_worker")
+        prediction_worker.daemon = True
+        return prediction_worker
+
     def prediction_worker(self):
         logger.debug("prediction_worker started")
         average_prediction_size = []
         last_model_check_time = time()
+        count = 0
         while True:
-            if last_model_check_time+600 < time():
-                with tf.device('/gpu:' + str(self.gpu_num)):
-                    self.try_reload_model()
-                # self.try_reload_model_list()
+            if last_model_check_time+300 < time():
+                # with tf.device('/gpu:' + str(self.gpu_num)):
+                # self.try_reload_model()
+                self.try_reload_model_list()
                 last_model_check_time = time()
                 logger.debug(f"average_prediction_size={np.average(average_prediction_size)}")
                 average_prediction_size = []
@@ -100,7 +117,10 @@ class MultiProcessReversiModelAPIServer:
                 size_list.append(x.shape[0])  # save k
             average_prediction_size.append(np.sum(size_list))
             array = np.concatenate(data, axis=0)
-            policy_ary, value_ary = self.model.model.predict_on_batch(array)
+            # print(f'Now use GPU#{count}')
+            policy_ary, value_ary = self.model_list[count].model.predict_on_batch(array)
+            count += 1
+            count %= self.config.model.num_gpus
             idx = 0
             for conn, s in zip(ready_conns, size_list):
                 conn.send((policy_ary[idx:idx+s], value_ary[idx:idx+s]))
@@ -125,7 +145,10 @@ class MultiProcessReversiModelAPIServer:
         try:
             logger.debug("check model")
             if self.config.play.use_newest_next_generation_model:
-                reload_newest_next_generation_model_if_changed(self.model, clear_session=True)
+                with tf.device('/cpu:0'):
+                    reload_newest_next_generation_model_if_changed(self.model, clear_session=True)
+                with tf.device('/gpu:' + str(self.gpu_num)):
+                    self.model = self.model
             else:
                 reload_best_model_weight_if_changed(self.model, clear_session=True)
         except Exception as e:
@@ -155,12 +178,28 @@ class MultiProcessReversiModelAPIServer:
     def try_reload_model_list(self):
         try:
             logger.debug("check model list")
-            for i in range(self.config.model.num_gpus):
-                with tf.device('/gpu:' + str(i)):
-                    if self.config.play.use_newest_next_generation_model:
-                        reload_newest_next_generation_model_if_changed(self.model_list[i], clear_session=True)
-                    else:
-                        reload_best_model_weight_if_changed(self.model_list[i], clear_session=True)
+            from reversi_zero.lib.data_helper import get_next_generation_model_dirs
+            rc = self.config.resource
+            dirs = get_next_generation_model_dirs(rc)
+            if not dirs:
+                logger.debug("No next generation model exists.")
+                return False
+            model_dir = dirs[-1]
+            weight_path = os.path.join(model_dir, rc.next_generation_model_weight_filename)
+            digest = self.model_list[0].fetch_digest(weight_path)
+            if digest and digest != self.model_list[0].digest:
+                K.clear_session()
+                del self.model_list
+                self.model_list = self.load_model_list()
+                for model in self.model_list:
+                    model.model._make_predict_function()
+            # for i in range(self.config.model.num_gpus):
+            #     os.environ["CUDA_VISIBLE_DEVICES"] = str(i)
+            #     with tf.device('/gpu:' + str(i)):
+            #         if self.config.play.use_newest_next_generation_model:
+            #             reload_newest_next_generation_model_if_changed(self.model_list[i], clear_session=True,config=self.config)
+            #         else:
+            #             reload_best_model_weight_if_changed(self.model_list[i], clear_session=True)
         except Exception as e:
             logger.error(e)
 

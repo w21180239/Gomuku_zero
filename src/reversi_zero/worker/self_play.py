@@ -28,28 +28,28 @@ logger = getLogger(__name__)
 
 def start(config: Config):
     tf_util.set_session_config(allow_growth=True)
-    api_server_list = [MultiProcessReversiModelAPIServer(config) for i in range(config.model.num_gpus)]
-    # api_server = MultiProcessReversiModelAPIServer(config)
-    # api_server.start_serve()
+    # api_server_list = [MultiProcessReversiModelAPIServer(config) for i in range(config.model.num_gpus)]
+    api_server = MultiProcessReversiModelAPIServer(config)
+    api_server.start_serve()
     process_num = config.play_data.multi_process_num
-    for i in range(config.model.num_gpus):
-        api_server_list[i].start_serve(i)
-        print(f'Create server on GPU#{i}')
+    # for i in range(config.model.num_gpus):
+    #     api_server_list[i].start_serve(i)
+    #     print(f'Create server on GPU#{i}')
 
     with Manager() as manager:
         shared_var = SharedVar(manager, game_idx=read_as_int(config.resource.self_play_game_idx_file) or 0)
         with ProcessPoolExecutor(max_workers=process_num) as executor:
             futures = []
-            # for i in range(process_num):
-            #     play_worker = SelfPlayWorker(config, env=ReversiEnv(), api=api_server.get_api_client(),
-            #                                  shared_var=shared_var, worker_index=i)
-            #     futures.append(executor.submit(play_worker.start))
-            for j in range(config.model.num_gpus):
-                for i in range(j, process_num, config.model.num_gpus):
-                    play_worker = SelfPlayWorker(config, env=ReversiEnv(), api=api_server_list[j].get_api_client(),
-                                                 shared_var=shared_var, worker_index=i)
-                    futures.append(executor.submit(play_worker.start))
-                    print(f'Assign thread {i} to GPU#{j}')
+            for i in range(process_num):
+                play_worker = SelfPlayWorker(config, env=ReversiEnv(), api=api_server.get_api_client(),
+                                             shared_var=shared_var, worker_index=i)
+                futures.append(executor.submit(play_worker.start))
+            # for j in range(config.model.num_gpus):
+            #     for i in range(j, process_num, config.model.num_gpus):
+            #         play_worker = SelfPlayWorker(config, env=ReversiEnv(), api=api_server_list[j].get_api_client(),
+            #                                      shared_var=shared_var, worker_index=i)
+            #         futures.append(executor.submit(play_worker.start))
+            #         print(f'Assign thread {i} to GPU#{j}')
 
 
 class SharedVar:

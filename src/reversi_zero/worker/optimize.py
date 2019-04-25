@@ -166,8 +166,6 @@ class OptimizeWorker:
 
     def load_play_data(self):
         filenames = get_game_data_filenames(self.config.resource)
-        shuffle(filenames)
-        filenames = filenames[:int(self.config.trainer.random_rate*len(filenames))]
         updated = False
         for filename in filenames:
             if filename in self.loaded_filenames:
@@ -187,6 +185,8 @@ class OptimizeWorker:
         try:
             logger.debug(f"loading data from {filename}")
             data = read_game_data_from_file(filename)
+            shuffle(data)
+            data = data[:int(self.config.trainer.random_rate * len(data))]
             self.loaded_data[filename] = self.convert_to_training_data(data)
             self.loaded_filenames.add(filename)
         except Exception as e:

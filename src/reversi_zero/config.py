@@ -166,14 +166,14 @@ class PlayConfig(ConfigBase):
         self.use_newest_next_generation_model = True
 
         # 每次主循环打几次game
-        self.games_per_loop = 2
+        self.games_per_loop = None
 
 
 class TrainerConfig(ConfigBase):
     def __init__(self):
-        self.wait_after_save_model_ratio = 2 # wait after saving model
+        self.wait_after_save_model_ratio = 0 # wait after saving model
         self.batch_size = 2048  # 2048
-        self.min_data_size_to_learn = 100000
+        self.min_data_size_to_learn = 10000
         self.epoch_to_checkpoint = 1
         self.start_total_steps = 0
         self.save_model_steps = 20
